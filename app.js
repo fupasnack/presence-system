@@ -1,6 +1,6 @@
 // app.js — seluruh logic digabung: Auth, Role Guard, Firestore, Cloudinary, UI, Notifikasi, PWA
 
-// Firebase config (diperbarui sesuai data kunci)
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyA08VBr5PfN5HB7_eub0aZ9-_FSFFHM62M",
   authDomain: "presence-system-adfd7.firebaseapp.com",
@@ -11,28 +11,17 @@ const firebaseConfig = {
   measurementId: "G-HHJREDRFZB"
 };
 
-// Cloudinary (diperbarui)
+// Cloudinary
 const CLOUD_NAME = "dn2o2vf04";
 const UPLOAD_PRESET = "presensi_unsigned";
 
-// UID roles (diperbarui sesuai data baru)
-const ADMIN_UIDS = new Set([
-  "DsBQ1TdWjgXvpVHUQJpF1H6jZzJ3", // karomi@fupa.id
-  "xxySAjSMqKeq7SC6r5vyzes7USY2"  // annisa@fupa.id
-]);
-const KARYAWAN_UIDS = new Set([
-  "y2MTtiGZcVcts2MkQncckAaUasm2", // x@fupa.id
-  "4qwoQhWyZmatqkRYaENtz5Uw8fy1", // cabang1@fupa.id
-  "UkIHdrTF6vefeuzp94ttlmxZzqk2", // cabang2@fupa.id
-  "kTpmDbdBETQT7HIqT6TvpLwrbQf2", // cabang3@fupa.id
-  "15FESE0b7cQFKqdJSqNBTZlHqWR2", // cabang4@fupa.id
-  "1tQidUDFTjRTJdJJYIudw9928pa2", // cabang5@fupa.id
-  "7BCcTwQ5wDaxWA6xbzJX9VWj1o52", // cabang6@fupa.id
-  "mpyFesOjUIcs8O8Sh3tVLS8x7dA3", // cabang7@fupa.id
-  "2jV2is3MQRhv7nnd1gXeqiaj11t2", // cabang8@fupa.id
-  "or2AQDVY1hdpwT0YOmL4qJrgCju1", // cabang9@fupa.id
-  "HNJ52lywYVaUhRK3BNEARfQsQo22"  // cabang10@fupa.id
-]);
+// Session management variables
+let loginAttempts = 0;
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+let lockoutUntil = 0;
+let sessionTimer = null;
+const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
 // Inisialisasi Firebase
 firebase.initializeApp(firebaseConfig);
@@ -42,13 +31,120 @@ const db = firebase.firestore();
 // Util UI
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-const toast = (msg) => {
+const toast = (msg, duration = 2200) => {
   const t = $("#toast");
   if (!t) return alert(msg);
   t.textContent = msg;
   t.style.display = "block";
-  setTimeout(() => { t.style.display = "none"; }, 2200);
+  setTimeout(() => { t.style.display = "none"; }, duration);
 };
+
+// Check if user is currently locked out
+function checkLockout() {
+  const now = Date.now();
+  if (now < lockoutUntil) {
+    const minutesLeft = Math.ceil((lockoutUntil - now) / 60000);
+    toast(`Terlalu banyak percobaan login. Coba lagi dalam ${minutesLeft} menit.`, 5000);
+    return true;
+  }
+  return false;
+}
+
+// Update login attempts counter
+function updateAttemptsCounter() {
+  const counter = $("#attemptsCounter");
+  const count = $("#attemptsCount");
+  if (counter && count) {
+    if (loginAttempts > 0) {
+      counter.style.display = "block";
+      count.textContent = loginAttempts;
+    } else {
+      counter.style.display = "none";
+    }
+  }
+}
+
+// Get client IP (simplified - would need proper server-side implementation)
+async function getClientIP() {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    return data.ip;
+  } catch (error) {
+    return "unknown";
+  }
+}
+
+// Create session record in Firestore
+async function createSessionRecord(user) {
+  const sessionData = {
+    uid: user.uid,
+    email: user.email,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    expiresAt: new Date(Date.now() + SESSION_DURATION),
+    userAgent: navigator.userAgent,
+    ip: await getClientIP()
+  };
+  
+  const sessionRef = await db.collection("sessions").add(sessionData);
+  return sessionRef.id;
+}
+
+// Check session validity
+async function checkSessionValidity() {
+  const sessionsQuery = await db.collection("sessions")
+    .where("uid", "==", auth.currentUser.uid)
+    .where("expiresAt", ">", new Date())
+    .orderBy("expiresAt", "desc")
+    .limit(1)
+    .get();
+  
+  if (sessionsQuery.empty) {
+    await auth.signOut();
+    toast("Sesi telah kedaluwarsa. Silakan login kembali.");
+    return false;
+  }
+  
+  return true;
+}
+
+// Refresh session
+async function refreshSession() {
+  const sessionsQuery = await db.collection("sessions")
+    .where("uid", "==", auth.currentUser.uid)
+    .orderBy("expiresAt", "desc")
+    .limit(1)
+    .get();
+  
+  if (!sessionsQuery.empty) {
+    const sessionDoc = sessionsQuery.docs[0];
+    await db.collection("sessions").doc(sessionDoc.id).update({
+      expiresAt: new Date(Date.now() + SESSION_DURATION)
+    });
+  }
+}
+
+// Log security event
+async function logSecurityEvent(type, data = {}) {
+  try {
+    const eventData = {
+      type,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      userAgent: navigator.userAgent,
+      ip: await getClientIP(),
+      ...data
+    };
+    
+    if (auth.currentUser) {
+      eventData.uid = auth.currentUser.uid;
+      eventData.email = auth.currentUser.email;
+    }
+    
+    await db.collection("security_logs").add(eventData);
+  } catch (error) {
+    console.error("Failed to log security event:", error);
+  }
+}
 
 // PWA register SW
 if ("serviceWorker" in navigator) {
@@ -129,51 +225,30 @@ function ymd(d){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
-// Role guard - DIPERBAIKI: Sekarang menggunakan data dari Firestore, bukan hanya UID
-function redirectByRole(uid, userData, pathIfAdmin, pathIfKaryawan) {
-  console.log("Redirect by role:", { uid, userData });
-  
-  // Cek dari Firestore data pertama
+// Role guard - menggunakan data dari Firestore
+function redirectByRole(userData, pathIfAdmin, pathIfKaryawan) {
   if (userData && userData.role === "admin") {
-    console.log("Redirecting to admin page");
     if (!location.pathname.endsWith(pathIfAdmin)) location.href = pathIfAdmin;
-    return;
-  }
-  
-  // Cek dari UID sebagai fallback
-  if (ADMIN_UIDS.has(uid)) {
-    console.log("Redirecting to admin page (UID fallback)");
-    if (!location.pathname.endsWith(pathIfAdmin)) location.href = pathIfAdmin;
-  } else if (KARYAWAN_UIDS.has(uid)) {
-    console.log("Redirecting to karyawan page (UID fallback)");
+  } else if (userData && userData.role === "karyawan") {
     if (!location.pathname.endsWith(pathIfKaryawan)) location.href = pathIfKaryawan;
   } else {
-    console.log("Access denied: no valid role");
     auth.signOut();
     toast("Akses ditolak: akun belum diberi peran yang benar.");
   }
 }
 
-function guardPage(uid, userData, required) {
-  console.log("Guard page check:", { uid, userData, required });
-  
-  // Cek dari Firestore data pertama
-  if (userData) {
-    if (required === "admin" && userData.role === "admin") return true;
-    if (required === "karyawan" && userData.role === "karyawan") return true;
+function guardPage(userData, required) {
+  if (!userData) {
+    location.href = "index.html";
+    return false;
   }
   
-  // Cek dari UID sebagai fallback
-  const isAdmin = ADMIN_UIDS.has(uid);
-  const isKaryawan = KARYAWAN_UIDS.has(uid);
-  
-  if (required === "admin" && !isAdmin) { 
-    console.log("Access denied: not admin");
+  if (required === "admin" && userData.role !== "admin") { 
     location.href = "index.html"; 
     return false; 
   }
-  if (required === "karyawan" && !isKaryawan) { 
-    console.log("Access denied: not karyawan");
+  
+  if (required === "karyawan" && userData.role !== "karyawan") { 
     location.href = "index.html"; 
     return false; 
   }
@@ -183,44 +258,39 @@ function guardPage(uid, userData, required) {
 
 // Auto bootstrap koleksi & dokumen penting tanpa setup manual
 async function bootstrapCollections(user) {
-  console.log("Bootstrapping collections for user:", user.uid);
-  
   // users profile doc
   const up = db.collection("users").doc(user.uid);
   const userDoc = await up.get();
   
-  // Jika user belum ada di Firestore, buat dokumen baru
+  let userData;
   if (!userDoc.exists) {
-    console.log("Creating new user document");
-    const userRole = ADMIN_UIDS.has(user.uid) ? "admin" : (KARYAWAN_UIDS.has(user.uid) ? "karyawan" : "unknown");
-    
-    await up.set({
+    // User doesn't exist in Firestore, create basic record
+    userData = {
       email: user.email || "",
-      role: userRole,
+      role: "unknown", // Default role, will be set by admin
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    
-    return { role: userRole };
+    };
+    await up.set(userData);
+    await logSecurityEvent("user_created", { uid: user.uid });
   } else {
     // Update last login
-    console.log("Updating last login for existing user");
+    userData = userDoc.data();
     await up.set({
       lastLogin: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    
-    return userDoc.data();
   }
+  
+  return userData;
 }
 
-// Auth routing untuk semua halaman - DIPERBAIKI: Sekarang menggunakan data user dari Firestore
+// Auth state change handler dengan session management
 auth.onAuthStateChanged(async (user) => {
-  console.log("Auth state changed:", user);
-  const path = location.pathname.toLowerCase();
+  $("#loading").style.display = "none";
   
+  const path = location.pathname.toLowerCase();
   if (!user) {
-    console.log("No user signed in");
-    // Cegah akses langsung
+    // Cegah akses langsung ke halaman terproteksi
     if (path.endsWith("karyawan.html") || path.endsWith("admin.html")) {
       location.href = "index.html";
     }
@@ -232,10 +302,12 @@ auth.onAuthStateChanged(async (user) => {
   }
 
   try {
-    console.log("User signed in:", user.uid);
-    const userData = await bootstrapCollections(user);
+    // Check session validity
+    const isValidSession = await checkSessionValidity();
+    if (!isValidSession) return;
     
-    console.log("User data from Firestore:", userData);
+    const userData = await bootstrapCollections(user);
+    await logSecurityEvent("user_login", { uid: user.uid });
 
     // Update server time live
     startServerClock("#serverTime");
@@ -243,36 +315,44 @@ auth.onAuthStateChanged(async (user) => {
     // Routing per halaman
     if (path.endsWith("index.html") || path.endsWith("/")) {
       // Setelah login, arahkan sesuai role
-      console.log("Redirecting from login page");
-      redirectByRole(user.uid, userData, "admin.html", "karyawan.html");
+      redirectByRole(userData, "admin.html", "karyawan.html");
       return;
     }
 
     if (path.endsWith("karyawan.html")) {
-      console.log("Loading karyawan page");
-      if (!guardPage(user.uid, userData, "karyawan")) return;
+      if (!guardPage(userData, "karyawan")) return;
       await ensureNotificationPermission();
       bindKaryawanPage(user, userData);
     }
 
     if (path.endsWith("admin.html")) {
-      console.log("Loading admin page");
-      if (!guardPage(user.uid, userData, "admin")) return;
+      if (!guardPage(userData, "admin")) return;
       await ensureNotificationPermission();
       bindAdminPage(user, userData);
     }
+    
+    // Setup session refresh timer
+    if (sessionTimer) clearInterval(sessionTimer);
+    sessionTimer = setInterval(async () => {
+      await refreshSession();
+    }, 30 * 60 * 1000); // Refresh every 30 minutes
+    
   } catch (error) {
     console.error("Error in auth state change:", error);
     toast("Error memuat data pengguna. Silakan coba lagi.");
+    await auth.signOut();
   }
 });
 
-// Halaman login - DIPERBAIKI: Menangani error dengan lebih baik
+// Halaman login dengan security enhancements
 function bindLoginPage() {
   const loginBtn = $("#loginBtn");
   if (!loginBtn) return;
   
   loginBtn.onclick = async () => {
+    // Check lockout status
+    if (checkLockout()) return;
+    
     const email = $("#email").value.trim();
     const pass = $("#password").value.trim();
     
@@ -281,23 +361,60 @@ function bindLoginPage() {
       return; 
     }
     
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast("Format email tidak valid.");
+      return;
+    }
+    
     // Tampilkan loading
-    const loadingEl = $("#loading");
-    if (loadingEl) loadingEl.style.display = "flex";
+    $("#loading").style.display = "flex";
+    loginBtn.disabled = true;
     
     try {
-      await auth.signInWithEmailAndPassword(email, pass);
-      // onAuthStateChanged akan redirect by role
-    } catch (e) {
-      if (loadingEl) loadingEl.style.display = "none";
-      console.error("Login error:", e);
+      // Log login attempt
+      await logSecurityEvent("login_attempt", { email });
       
+      const userCredential = await auth.signInWithEmailAndPassword(email, pass);
+      
+      // Update security log for successful login
+      await logSecurityEvent("login_success", { email, uid: userCredential.user.uid });
+      
+      // Reset login attempts on success
+      loginAttempts = 0;
+      updateAttemptsCounter();
+      
+      // Create session record
+      await createSessionRecord(userCredential.user);
+      
+    } catch (e) {
+      loginBtn.disabled = false;
+      $("#loading").style.display = "none";
+      
+      // Log failed attempt
+      await logSecurityEvent("login_failed", { email, error: e.code });
+      
+      // Increment login attempts
+      loginAttempts++;
+      updateAttemptsCounter();
+      
+      // Implement lockout after too many attempts
+      if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        lockoutUntil = Date.now() + LOCKOUT_DURATION;
+        toast(`Terlalu banyak percobaan login. Akun terkunci sementara selama 15 menit.`, 5000);
+        await logSecurityEvent("account_lockout", { email, duration: LOCKOUT_DURATION });
+      }
+      
+      // Handle specific error cases
       if (e.code === "auth/user-not-found") {
         toast("Email tidak terdaftar.");
       } else if (e.code === "auth/wrong-password") {
         toast("Kata sandi salah.");
       } else if (e.code === "auth/invalid-email") {
         toast("Format email tidak valid.");
+      } else if (e.code === "auth/too-many-requests") {
+        toast("Terlalu banyak percobaan. Coba lagi nanti.");
       } else {
         toast("Gagal masuk. Periksa kembali kredensial.");
       }
@@ -420,6 +537,7 @@ async function savePresensi({ uid, nama, jenis, status, lat, lng, selfieUrl, ser
     ymd: ymd(ts)
   };
   await db.collection("presensi").add(doc);
+  await logSecurityEvent("presensi_created", { uid, jenis, status });
 }
 
 // Ambil riwayat singkat karyawan
@@ -451,6 +569,7 @@ function subscribeNotifications(uid, cb) {
 // Hapus notifikasi
 async function deleteNotification(id) {
   await db.collection("notifications").doc(id).delete();
+  await logSecurityEvent("notification_deleted", { notificationId: id });
 }
 
 // Tandai notifikasi sebagai sudah dibaca
@@ -478,6 +597,8 @@ async function ajukanCuti(uid, nama, jenis, tanggal, catatan) {
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  
+  await logSecurityEvent("cuti_ajukan", { uid, cutiId: cutiRef.id, jenis, tanggal });
 }
 
 // Admin list cuti
@@ -526,6 +647,13 @@ async function setCutiStatus(id, status, adminUid) {
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  
+  await logSecurityEvent("cuti_status", { 
+    cutiId: id, 
+    status, 
+    adminUid, 
+    userId: cutiData.uid 
+  });
 }
 
 // Pengumuman
@@ -538,6 +666,11 @@ async function kirimPengumuman(text, adminUid) {
     data: { from: adminUid },
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  
+  await logSecurityEvent("pengumuman_kirim", { 
+    adminUid, 
+    message: text.substring(0, 100) // Log only first 100 chars
   });
 }
 
@@ -559,6 +692,12 @@ async function setOverrideStatus(date, status, adminUid) {
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  
+  await logSecurityEvent("override_set", { 
+    date, 
+    status, 
+    adminUid 
+  });
 }
 
 // Jadwal wajib
@@ -566,6 +705,11 @@ async function setHariMode(mode, dateStr) {
   await db.collection("_settings").doc("today").set({
     mode, date: dateStr
   }, { merge: true });
+  
+  await logSecurityEvent("hari_mode", { 
+    mode, 
+    date: dateStr 
+  });
 }
 
 // Profil simpan (nama, alamat, foto profil -> Cloudinary)
@@ -576,6 +720,11 @@ async function saveProfile(uid, { nama, alamat, pfpUrl }) {
   if (pfpUrl !== undefined) d.pfp = pfpUrl;
   d.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
   await db.collection("users").doc(uid).set(d, { merge: true });
+  
+  await logSecurityEvent("profile_update", { 
+    uid, 
+    fields: Object.keys(d).filter(k => k !== 'updatedAt') 
+  });
 }
 
 // Ambil profil
@@ -586,10 +735,18 @@ async function getProfile(uid) {
 
 // Hapus presensi
 async function deletePresensi(id) {
+  const presensiDoc = await db.collection("presensi").doc(id).get();
+  const presensiData = presensiDoc.data();
+  
   await db.collection("presensi").doc(id).delete();
+  
+  await logSecurityEvent("presensi_delete", { 
+    presensiId: id, 
+    uid: presensiData.uid 
+  });
 }
 
-// Halaman Karyawan bindings - DIPERBAIKI: Menerima parameter userData
+// Halaman Karyawan bindings
 async function bindKaryawanPage(user, userData) {
   const video = $("#cam");
   const canvas = $("#canvas");
@@ -839,6 +996,7 @@ async function bindKaryawanPage(user, userData) {
   $("#logoutBtn").onclick = async () => { 
     // Tampilkan loading
     if (loadingEl) loadingEl.style.display = "flex";
+    await logSecurityEvent("user_logout", { uid: user.uid });
     await auth.signOut(); 
     location.href = "index.html"; 
   };
@@ -854,7 +1012,7 @@ async function bindKaryawanPage(user, userData) {
   });
 }
 
-// Halaman Admin bindings - DIPERBAIKI: Menerima parameter userData
+// Halaman Admin bindings
 async function bindAdminPage(user, userData) {
   // Profil muat
   const profile = await getProfile(user.uid);
@@ -867,6 +1025,7 @@ async function bindAdminPage(user, userData) {
   $("#logoutBtn").onclick = async () => { 
     const loadingEl = $("#loading");
     if (loadingEl) loadingEl.style.display = "flex";
+    await logSecurityEvent("user_logout", { uid: user.uid });
     await auth.signOut(); 
     location.href="index.html"; 
   };
@@ -1180,6 +1339,12 @@ async function bindAdminPage(user, userData) {
         email, role:"karyawan", createdBy: user.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge:true });
       
+      await logSecurityEvent("user_created_admin", { 
+        adminUid: user.uid, 
+        newUserEmail: email, 
+        newUserId: uid 
+      });
+      
       // Tampilkan dialog konfirmasi UID
       $("#newUid").value = uid;
       $("#confirmUidDlg").showModal();
@@ -1213,3 +1378,22 @@ function download(filename, text) {
   a.download = filename;
   a.click();
 }
+
+// Initialize login attempts from localStorage
+const savedLockout = localStorage.getItem('lockoutUntil');
+if (savedLockout) {
+  lockoutUntil = parseInt(savedLockout);
+  if (Date.now() > lockoutUntil) {
+    lockoutUntil = 0;
+    localStorage.removeItem('lockoutUntil');
+  }
+}
+
+// Save lockout to localStorage
+setInterval(() => {
+  if (lockoutUntil > 0) {
+    localStorage.setItem('lockoutUntil', lockoutUntil.toString());
+  } else {
+    localStorage.removeItem('lockoutUntil');
+  }
+}, 1000);
