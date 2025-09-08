@@ -1,0 +1,33 @@
+{
+  "name": "Presensi FUPA",
+  "short_name": "Presensi",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#FFD54F",
+  "theme_color": "#FFC107",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/gh/google/material-design-icons@master/sprites/svg-sprite/svg-sprite-action.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.iconify.design/material-symbols/workspace-premium.svg?color=%23ffb300",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTAwIiBmaWxsPSIjRkZCMzAwIi8+CjxwYXRoIGQ9Ik0yNTYgMTI4QzIxMi44NjMgMTI4IDE3OCAxNjIuODYzIDE3OCAyMDZDMTc4IDI0OS4xMzcgMjEyLjg2MyAyODQgMjU2IDI4NEMyOTkuMTM3IDI4NCAzMzQgMjQ5LjEzNyAzMzQgMjA2QzMzNCAxNjIuODYzIDI5OS4xMzcgMTI4IDI1NiAxMjhaTTI1NiA0NDhDMjE1LjU2NSA0NDggMTgwIDQ0MC43ODIgMTgwIDQzMlYzMjBIMzMyVjQzMkMzMzIgNDQwLjc4MiAyOTYuNDM1IDQ0OCAyNTYgNDQ4WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "description": "Aplikasi presensi online untuk karyawan FUPA",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "id"
+}
