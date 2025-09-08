@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid in ['DsBQ1TdWjgXvpVHUQJpF1H6jZzJ3', 'xxySAjSMqKeq7SC6r5vyzes7USY2'] || 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+    
+    function isKaryawan() {
+      return isSignedIn() && (
+        request.auth.uid in ['y2MTtiGZcVcts2MkQncckAaUasm2', '4qwoQhWyZmatqkRYaENtz5Uw8fy1', 'UkIHdrTF6vefeuzp94ttlmxZzqk2', 'kTpmDbdBETQT7HIqT6TvpLwrbQf2', '15FESE0b7cQFKqdJSqNBTZlHqWR2', '1tQidUDFTjRTJdJJYIudw9928pa2', '7BCcTwQ5wDaxWA6xbzJX9VWj1o52', 'mpyFesOjUIcs8O8Sh3tVLS8x7dA3', '2jV2is3MQRhv7nnd1gXeqiaj11t2', 'or2AQDVY1hdpwT0YOmL4qJrgCju1', 'HNJ52lywYVaUhRK3BNEARfQsQo22'] || 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'karyawan'
+      );
+    }
+    
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isAdmin() || isUser(userId));
+      allow write: if isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isUser(userId) && 
+        request.resource.data.keys().hasAll(['nama', 'alamat', 'pfp', 'updatedAt']) &&
+        request.resource.data.size() == 4;
+    }
+    
+    // Presensi collection
+    match /presensi/{presensiId} {
+      allow read: if isSignedIn() && (isAdmin() || isUser(resource.data.uid));
+      allow create: if isKaryawan() && 
+        request.auth.uid == request.resource.data.uid &&
+        request.resource.data.keys().hasAll(['uid', 'nama', 'jenis', 'status', 'lat', 'lng', 'selfieUrl', 'createdAt', 'localTime', 'ymd']) &&
+        request.resource.data.size() == 10;
+      allow update, delete: if isAdmin();
+    }
+    
+    // Cuti collection
+    match /cuti/{cutiId} {
+      allow read: if isSignedIn() && (isAdmin() || isUser(resource.data.uid));
+      allow create: if isKaryawan() && 
+        request.auth.uid == request.resource.data.uid &&
+        request.resource.data.keys().hasAll(['uid', 'nama', 'jenis', 'tanggal', 'catatan', 'status', 'createdAt']) &&
+        request.resource.data.size() == 7;
+      allow update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['status']) &&
+        request.resource.data.size() == 1;
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.userId == request.auth.uid || 
+        resource.data.userId == 'all'
+      );
+      allow write: if isAdmin();
+      allow create: if isSignedIn() && (
+        (isAdmin() && request.resource.data.userId in ['all', 'admin']) ||
+        (isKaryawan() && request.resource.data.userId == request.auth.uid)
+      );
+      allow update: if isSignedIn() && (
+        (isUser(resource.data.userId) && 
+         request.resource.data.keys().hasAll(['read']) &&
+         request.resource.data.size() == 1) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        isUser(resource.data.userId) || isAdmin()
+      );
+    }
+    
+    // Overrides collection
+    match /overrides/{overrideId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Settings collection
+    match /_settings/{document} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Meta collection
+    match /_meta/{document} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
