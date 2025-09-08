@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Presensi FUPA — Masuk</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#FFC107" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL,GRAD@1,200" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg1:#FFF59D; --bg2:#FFD54F; --bg3:#FFB300;
+      --card:#ffffffcc; --txt:#222; --accent:#673AB7; --good:#2e7d32; --warn:#f9a825; --bad:#c62828;
+      --soft-shadow: 0 10px 30px rgba(0,0,0,.15);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto; color:var(--txt);
+      background: radial-gradient(1200px 800px at 80% -10%, var(--bg3), transparent),
+                  radial-gradient(1000px 600px at 0% 0%, var(--bg2), transparent),
+                  linear-gradient(180deg, var(--bg1), var(--bg2) 60%, var(--bg3));
+      min-height:100svh; overflow:hidden; position:relative;
+    }
+    .glow{
+      position:absolute; inset:0; pointer-events:none; mix-blend-mode:multiply; filter:blur(40px);
+      background:
+        radial-gradient(600px 400px at 20% 80%, rgba(255,255,255,.35), transparent),
+        radial-gradient(400px 300px at 80% 20%, rgba(255,255,255,.25), transparent);
+      animation: shimmer 10s ease-in-out infinite alternate;
+    }
+    @keyframes shimmer{ from{opacity:.7; transform:translateY(-10px)} to{opacity:1; transform:translateY(10px)} }
+    .leaf{ position:absolute; top:-10vh; font-variation-settings:"FILL" 1, "GRAD" 200; color:rgba(255,255,255,.8);
+      filter:drop-shadow(0 6px 12px rgba(0,0,0,.2)); animation: fall linear infinite; }
+    @keyframes fall{
+      0%{ transform:translate3d(var(--x,0), -10vh, 0) rotate(0deg); opacity:.9}
+      100%{ transform:translate3d(calc(var(--x,0) + var(--dx, 0px)), 110vh, 0) rotate(360deg); opacity:.2}
+    }
+    .wrap{
+      position:relative; z-index:2; display:grid; place-items:center; min-height:100svh; padding:24px;
+    }
+    .card{
+      width:min(520px, 92vw); background:var(--card); border-radius:20px; box-shadow:var(--soft-shadow);
+      backdrop-filter: blur(8px); padding:24px; overflow:hidden; position:relative;
+    }
+    .card::before{
+      content:""; position:absolute; inset:0; background:linear-gradient(135deg, rgba(255,255,255,.3), transparent);
+      mask: linear-gradient(#000 50%, transparent); pointer-events:none;
+    }
+    h1{margin:0 0 8px; font-weight:800; letter-spacing:.2px}
+    p.sub{margin:0 0 16px; opacity:.8}
+    .input{
+      display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:12px 14px; margin:12px 0;
+      border:1px solid rgba(0,0,0,.06);
+    }
+    .input input{
+      width:100%; border:none; outline:none; font-size:16px; background:transparent;
+    }
+    .row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px}
+    .btn{
+      display:inline-flex; align-items:center; gap:10px; border:none; cursor:pointer; border-radius:14px;
+      padding:12px 16px; font-weight:700; color:#fff; background:linear-gradient(135deg, #FFB300, #FF8F00);
+      box-shadow:0 10px 20px rgba(255,143,0,.25); transition:transform .15s ease, filter .2s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.05) }
+    .link{ color:#222; opacity:.8; text-decoration:underline; cursor:pointer }
+    .hint{ font-size:13px; opacity:.75; }
+    .toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#111; color:#fff; padding:10px 14px;
+      border-radius:12px; box-shadow:var(--soft-shadow); z-index:10; display:none;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; margin-bottom:10px;
+    }
+    .material-symbols-rounded{ font-variation-settings:"FILL" 1, "GRAD" 200; }
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #FFB300;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <p style="margin-top: 16px;">Memproses...</p>
+  </div>
+  
+  <div class="glow"></div>
+  <!-- daun jatuh -->
+  <span class="material-symbols-rounded leaf" style="left:10%; font-size:28px; --x:10vw; --dx:-30px; animation-duration:11s;">spa</span>
+  <span class="material-symbols-rounded leaf" style="left:30%; font-size:36px; --x:30vw; --dx:20px; animation-duration:13s; animation-delay:.5s;">eco</span>
+  <span class="material-symbols-rounded leaf" style="left:55%; font-size:30px; --x:55vw; --dx:-15px; animation-duration:12s; animation-delay:1s;">spa</span>
+  <span class="material-symbols-rounded leaf" style="left:75%; font-size:40px; --x:75vw; --dx:10px; animation-duration:15s; animation-delay:1.5s;">eco</span>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <span class="material-symbols-rounded" style="color:#FF8F00;">workspace_premium</span>
+        <h1>Presensi FUPA</h1>
+      </div>
+      <p class="sub">Masuk menggunakan email dan kata sandi. Jika mengalami kendala kata sandi, hubungi admin.</p>
+
+      <div class="input">
+        <span class="material-symbols-rounded">mail</span>
+        <input id="email" type="email" placeholder="Email kerja" autocomplete="username" />
+      </div>
+      <div class="input">
+        <span class="material-symbols-rounded">lock</span>
+        <input id="password" type="password" placeholder="Kata sandi" autocomplete="current-password" />
+        <button id="togglePass" class="btn" style="background:#eee;color:#222;box-shadow:none;padding:8px 10px;font-weight:600;">
+          <span class="material-symbols-rounded" id="eye">visibility</span>
+        </button>
+      </div>
+      <div class="row">
+        <span class="hint">Jika lupa sandi, hubungi admin.</span>
+        <button id="loginBtn" class="btn"><span class="material-symbols-rounded">login</span> Masuk</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Firebase config (diperbarui sesuai data kunci)
+    const firebaseConfig = {
+      apiKey: "AIzaSyA08VBr5PfN5HB7_eub0aZ9-_FSFFHM62M",
+      authDomain: "presence-system-adfd7.firebaseapp.com",
+      projectId: "presence-system-adfd7",
+      storageBucket: "presence-system-adfd7.firebasestorage.app",
+      messagingSenderId: "84815583677",
+      appId: "1:84815583677:web:12e743b9f5c2b0cb395ad4",
+      measurementId: "G-HHJREDRFZB"
+    };
+
+    // Cloudinary (diperbarui)
+    const CLOUD_NAME = "dn2o2vf04";
+    const UPLOAD_PRESET = "presensi_unsigned";
+
+    // UID roles (diperbarui sesuai data baru)
+    const ADMIN_UIDS = new Set([
+      "DsBQ1TdWjgXvpVHUQJpF1H6jZzJ3", // karomi@fupa.id
+      "xxySAjSMqKeq7SC6r5vyzes7USY2"  // annisa@fupa.id
+    ]);
+    const KARYAWAN_UIDS = new Set([
+      "y2MTtiGZcVcts2MkQncckAaUasm2", // x@fupa.id
+      "4qwoQhWyZmatqkRYaENtz5Uw8fy1", // cabang1@fupa.id
+      "UkIHdrTF6vefeuzp94ttlmxZzqk2", // cabang2@fupa.id
+      "kTpmDbdBETQT7HIqT6TvpLwrbQf2", // cabang3@fupa.id
+      "15FESE0b7cQFKqdJSqNBTZlHqWR2", // cabang4@fupa.id
+      "1tQidUDFTjRTJdJJYIudw9928pa2", // cabang5@fupa.id
+      "7BCcTwQ5wDaxWA6xbzJX9VWj1o52", // cabang6@fupa.id
+      "mpyFesOjUIcs8O8Sh3tVLS8x7dA3", // cabang7@fupa.id
+      "2jV2is3MQRhv7nnd1gXeqiaj11t2", // cabang8@fupa.id
+      "or2AQDVY1hdpwT0YOmL4qJrgCju1", // cabang9@fupa.id
+      "HNJ52lywYVaUhRK3BNEARfQsQo22"  // cabang10@fupa.id
+    ]);
+
+    // Inisialisasi Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Util UI
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    const toast = (msg) => {
+      const t = $("#toast");
+      if (!t) return alert(msg);
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 2200);
+    };
+
+    // UI only: toggle password eye
+    document.getElementById('togglePass').onclick = () => {
+      const inp = document.getElementById('password');
+      const eye = document.getElementById('eye');
+      const is = inp.type === 'password';
+      inp.type = is ? 'text' : 'password';
+      eye.textContent = is ? 'visibility_off' : 'visibility';
+    }
+
+    // Halaman login
+    function bindLoginPage() {
+      const loginBtn = $("#loginBtn");
+      if (!loginBtn) return;
+      loginBtn.onclick = async () => {
+        const email = $("#email").value.trim();
+        const pass = $("#password").value.trim();
+        if (!email || !pass) { toast("Isi email dan kata sandi."); return; }
+        
+        // Tampilkan loading
+        $("#loading").style.display = "flex";
+        
+        try {
+          await auth.signInWithEmailAndPassword(email, pass);
+          // onAuthStateChanged akan redirect by role
+        } catch (e) {
+          $("#loading").style.display = "none";
+          toast("Gagal masuk. Periksa kembali kredensial.");
+        }
+      };
+    }
+
+    // Role guard
+    function redirectByRole(uid, pathIfAdmin, pathIfKaryawan) {
+      if (ADMIN_UIDS.has(uid)) {
+        if (!location.pathname.endsWith(pathIfAdmin)) location.href = pathIfAdmin;
+      } else if (KARYAWAN_UIDS.has(uid)) {
+        if (!location.pathname.endsWith(pathIfKaryawan)) location.href = pathIfKaryawan;
+      } else {
+        auth.signOut();
+        toast("Akses ditolak: akun belum diberi peran yang benar.");
+      }
+    }
+
+    // Auto bootstrap koleksi & dokumen penting tanpa setup manual
+    async function bootstrapCollections(user) {
+      // users profile doc
+      const up = db.collection("users").doc(user.uid);
+      await up.set({
+        email: user.email || "",
+        role: ADMIN_UIDS.has(user.uid) ? "admin" : (KARYAWAN_UIDS.has(user.uid) ? "karyawan" : "unknown"),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // meta server tick
+      await db.collection("_meta").doc("_srv").set({ t: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+
+      // settings today default
+      const todayDoc = db.collection("_settings").doc("today");
+      if (!(await todayDoc.get()).exists) {
+        await todayDoc.set({ mode:"auto", date: new Date().toISOString().split('T')[0] });
+      }
+    }
+
+    // Auth routing untuk semua halaman
+    auth.onAuthStateChanged(async (user) => {
+      $("#loading").style.display = "none";
+      
+      const path = location.pathname.toLowerCase();
+      if (!user) {
+        // Cegah akses langsung
+        if (path.endsWith("karyawan.html") || path.endsWith("admin.html")) {
+          location.href = "index.html";
+        }
+        // halaman login tidak butuh apa-apa
+        if (path.endsWith("index.html") || path.endsWith("/")) {
+          bindLoginPage();
+        }
+        return;
+      }
+
+      await bootstrapCollections(user);
+
+      // Routing per halaman
+      if (path.endsWith("index.html") || path.endsWith("/")) {
+        // Setelah login, arahkan sesuai role
+        redirectByRole(user.uid, "admin.html", "karyawan.html");
+        return;
+      }
+    });
+
+    // PWA register SW
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js");
+      });
+    }
+
+    // Inisialisasi halaman login
+    bindLoginPage();
+  </script>
+</body>
+</html>
