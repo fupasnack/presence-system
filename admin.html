@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Presensi FUPA — Admin</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#FFC107" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL,GRAD@1,200" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg1:#FFF59D; --bg2:#FFD54F; --bg3:#FFB300; --card:#ffffffcc; --txt:#222; --accent:#673AB7;
+      --soft-shadow: 0 10px 30px rgba(0,0,0,.15); --good:#2e7d32; --warn:#f9a825; --bad:#c62828;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,system-ui; color:var(--txt);
+      background: radial-gradient(1200px 800px at 80% -10%, var(--bg3), transparent),
+                  radial-gradient(1000px 600px at 0% 0%, var(--bg2), transparent),
+                  linear-gradient(180deg, var(--bg1), var(--bg2) 60%, var(--bg3));
+      min-height:100svh; overflow-x:hidden; position:relative;
+    }
+    header{ position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:14px 16px; backdrop-filter: blur(8px); }
+    .brand{display:flex; align-items:center; gap:10px}
+    .icons{display:flex; align-items:center; gap:10px}
+    .icon-btn{ background:#fff; border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:8px; display:inline-flex; cursor:pointer;
+      box-shadow:var(--soft-shadow); }
+    .container{ padding:16px }
+    .card{ background:var(--card); border-radius:16px; padding:16px; box-shadow:var(--soft-shadow); }
+    .grid{ display:grid; grid-template-columns:1fr; gap:16px }
+    @media(min-width:1024px){ .grid{ grid-template-columns:1fr .7fr } }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    .input{ display:flex; align-items:center; gap:8px; background:#fff; border:1px solid rgba(0,0,0,.06); border-radius:12px; padding:8px 10px }
+    .input input, .input select, .input textarea{ border:none; outline:none; background:transparent; font-size:14px }
+    .btn{
+      display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, #FFB300, #FF8F00);
+      color:#fff; border:none; border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer;
+      box-shadow:0 10px 20px rgba(255,143,0,.25);
+    }
+    table{ width:100%; border-collapse:separate; border-spacing:0 8px }
+    th, td{ text-align:left; padding:10px 12px; background:#fff }
+    th{ position:sticky; top:0; z-index:1 }
+    tr{ box-shadow:0 1px 0 rgba(0,0,0,.06) }
+    .fab{
+      position:fixed; right:16px; bottom:16px; z-index:6; width:56px; height:56px; border-radius:50%;
+      display:grid; place-items:center; background:linear-gradient(135deg,#FF8F00,#FF6F00); color:#fff; box-shadow:var(--soft-shadow);
+      cursor:pointer;
+    }
+    dialog{ border:none; border-radius:16px; width:min(720px,92vw); padding:0; box-shadow:var(--soft-shadow); overflow:hidden; }
+    .dlg-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#fff}
+    .dlg-body{padding:14px; background:#fff}
+    .status{font-weight:800; padding:6px 10px; border-radius:12px; color:#fff; display:inline-flex; align-items:center; gap:6px}
+    .s-good{background:var(--good)} .s-warn{background:var(--warn)} .s-bad{background:var(--bad)}
+    .toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#111; color:#fff; padding:10px 14px;
+      border-radius:12px; box-shadow:var(--soft-shadow); z-index:10; display:none; }
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #FFB300;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+      gap: 8px;
+    }
+    .pagination button {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .pagination button.active {
+      background: #FFB300;
+      color: white;
+    }
+    .notification-item {
+      border-left: 4px solid #FFB300;
+      padding-left: 10px;
+      margin-bottom: 10px;
+    }
+    .notification-item.unread {
+      border-left-color: #673AB7;
+      background-color: #f9f9f9;
+    }
+    .override-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <p style="margin-top: 16px;">Memproses...</p>
+  </div>
+
+  <header>
+    <div class="brand">
+      <span class="material-symbols-rounded" style="color:#FF8F00">workspace_premium</span>
+      <div>
+        <div style="font-weight:800">Panel Admin</div>
+        <div id="serverTime" style="font-size:12px; opacity:.8">Memuat waktu server…</div>
+      </div>
+    </div>
+    <div class="icons">
+      <button id="notifBtn" class="icon-btn" title="Permintaan cuti">
+        <span class="material-symbols-rounded">notifications_active</span>
+        <span id="notifBadge" style="display:none; position:absolute; top:-5px; right:-5px; background:var(--bad); color:white; border-radius:50%; width:18px; height:18px; font-size:12px; display:grid; place-items:center;"></span>
+      </button>
+      <button id="profileBtn" class="icon-btn" title="Profil & akun">
+        <span class="material-symbols-rounded">admin_panel_settings</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+      <section class="card">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Riwayat presensi</h3>
+          <div class="row">
+            <div class="input"><span class="material-symbols-rounded">person_search</span><input id="fNama" placeholder="Filter nama" /></div>
+            <div class="input"><span class="material-symbols-rounded">today</span><input id="fTanggal" type="date" /></div>
+            <div class="input">
+              <span class="material-symbols-rounded">calendar_today</span>
+              <select id="fPeriode">
+                <option value="semua">Semua Periode</option>
+                <option value="hari">Hari Ini</option>
+                <option value="minggu">Minggu Ini</option>
+                <option value="bulan">Bulan Ini</option>
+                <option value="tahun">Tahun Ini</option>
+              </select>
+            </div>
+            <button id="applyFilter" class="btn"><span class="material-symbols-rounded">filter_alt</span> Terapkan</button>
+            <button id="exportCsv" class="btn"><span class="material-symbols-rounded">download</span> Ekspor CSV</button>
+          </div>
+        </div>
+        <div style="max-height:60vh; overflow:auto; margin-top:10px">
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Nama</th>
+                <th>Jenis</th>
+                <th>Status</th>
+                <th>Koordinat</th>
+                <th>Selfie</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+
+      <section class="card">
+        <h3 style="margin:0 0 8px">Pengaturan & pengumuman</h3>
+        <div class="row">
+          <div class="input">
+            <span class="material-symbols-rounded">event_busy</span>
+            <select id="wajibHari">
+              <option value="auto">Sesuai aturan: Minggu non-presensi</option>
+              <option value="forceOn">Paksa wajib presensi hari ini</option>
+              <option value="forceOff">Paksa tidak wajib presensi hari ini</option>
+            </select>
+          </div>
+          <button id="saveSchedule" class="btn"><span class="material-symbols-rounded">save</span> Simpan</button>
+        </div>
+        
+        <div class="override-section">
+          <h4 style="margin:0 0 8px">Override Status Presensi</h4>
+          <div class="row">
+            <div class="input">
+              <span class="material-symbols-rounded">calendar_today</span>
+              <input id="overrideTanggal" type="date" />
+            </div>
+            <div class="input">
+              <span class="material-symbols-rounded">settings</span>
+              <select id="overrideStatus">
+                <option value="libur">Libur</option>
+                <option value="masuk">Masuk</option>
+                <option value="wajib">Wajib Presensi</option>
+                <option value="tidak-wajib">Tidak Wajib Presensi</option>
+              </select>
+            </div>
+            <button id="applyOverride" class="btn"><span class="material-symbols-rounded">settings</span> Terapkan Override</button>
+          </div>
+        </div>
+        
+        <div class="row" style="margin-top:10px">
+          <div class="input" style="flex:1"><span class="material-symbols-rounded">campaign</span>
+            <textarea id="announceText" placeholder="Tulis pengumuman untuk karyawan" rows="3" style="width:100%"></textarea>
+          </div>
+          <button id="sendAnnounce" class="btn"><span class="material-symbols-rounded">send</span> Kirim</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- FAB pengumuman cepat -->
+  <button class="fab" id="announceFab" title="Pengumuman">
+    <span class="material-symbols-rounded">campaign</span>
+  </button>
+
+  <!-- Dialog profil admin + create akun -->
+  <dialog id="profileDlg">
+    <div class="dlg-head">
+      <div class="row"><span class="material-symbols-rounded">admin_panel_settings</span><b>Profil & Akun</b></div>
+      <button class="icon-btn" onclick="document.getElementById('profileDlg').close()"><span class="material-symbols-rounded">close</span></button>
+    </div>
+    <div class="dlg-body">
+      <div class="row" style="align-items:flex-end">
+        <img id="pfp" src="https://api.dicebear.com/7.x/initials/svg?seed=Admin&backgroundColor=ffb300,ffd54f&radius=20" alt="Foto profil" style="width:80px;height:80px;border-radius:16px; background:#eee" />
+        <div class="input"><span class="material-symbols-rounded">photo</span><input type="file" id="pfpFile" accept="image/*" /></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="input" style="flex:1"><span class="material-symbols-rounded">badge</span><input id="nama" placeholder="Nama admin" /></div>
+        <div class="input" style="flex:1"><span class="material-symbols-rounded">home</span><input id="alamat" placeholder="Alamat" /></div>
+      </div>
+      <div class="row" style="justify-content:space-between; margin-top:12px">
+        <button id="saveProfileBtn" class="btn"><span class="material-symbols-rounded">save</span> Simpan</button>
+        <button id="logoutBtn" class="btn" style="background:#222"><span class="material-symbols-rounded">logout</span> Keluar</button>
+      </div>
+
+      <hr style="margin:16px 0; opacity:.3" />
+
+      <h4 style="margin:0 0 8px">Buat akun karyawan</h4>
+      <div class="row">
+        <div class="input" style="flex:1"><span class="material-symbols-rounded">mail</span><input id="newEmail" placeholder="Email karyawan" /></div>
+        <div class="input" style="flex:1"><span class="material-symbols-rounded">lock</span><input id="newPass" placeholder="Kata sandi sementara" /></div>
+        <button id="createUserBtn" class="btn"><span class="material-symbols-rounded">person_add</span> Buat</button>
+      </div>
+      <div class="hint" style="opacity:.8;margin-top:6px">Akun dibuat tanpa keluar dari sesi admin.</div>
+    </div>
+  </dialog>
+
+  <!-- Dialog konfirmasi UID -->
+  <dialog id="confirmUidDlg">
+    <div class="dlg-head">
+      <div class="row"><span class="material-symbols-rounded">person_add</span><b>Konfirmasi UID</b></div>
+      <button class="icon-btn" onclick="document.getElementById('confirmUidDlg').close()"><span class="material-symbols-rounded">close</span></button>
+    </div>
+    <div class="dlg-body">
+      <p>Akun berhasil dibuat! Salin UID berikut dan tambahkan ke constant KARYAWAN_UIDS di app.js:</p>
+      <div class="input" style="margin:10px 0">
+        <input id="newUid" type="text" readonly />
+        <button class="btn" onclick="copyUid()">Salin</button>
+      </div>
+      <button class="btn" onclick="document.getElementById('confirmUidDlg').close()">Selesai</button>
+    </div>
+  </dialog>
+
+  <!-- Dialog notifikasi (permintaan cuti) -->
+  <dialog id="notifDlg">
+    <div class="dlg-head">
+      <div class="row"><span class="material-symbols-rounded">approval</span><b>Permintaan cuti</b></div>
+      <button class="icon-btn" onclick="document.getElementById('notifDlg').close()"><span class="material-symbols-rounded">close</span></button>
+    </div>
+    <div class="dlg-body" id="cutiList" style="display:grid; gap:10px; max-height:60vh; overflow-y:auto;"></div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Firebase config (diperbarui sesuai data kunci)
+    const firebaseConfig = {
+      apiKey: "AIzaSyA08VBr5PfN5HB7_eub0aZ9-_FSFFHM62M",
+      authDomain: "presence-system-adfd7.firebaseapp.com",
+      projectId: "presence-system-adfd7",
+      storageBucket: "presence-system-adfd7.firebasestorage.app",
+      messagingSenderId: "84815583677",
+      appId: "1:84815583677:web:12e743b9f5c2b0cb395ad4",
+      measurementId: "G-HHJREDRFZB"
+    };
+
+    // Cloudinary (diperbarui)
+    const CLOUD_NAME = "dn2o2vf04";
+    const UPLOAD_PRESET = "presensi_unsigned";
+
+    // UID roles (diperbarui sesuai data baru)
+    const ADMIN_UIDS = new Set([
+      "DsBQ1TdWjgXvpVHUQJpF1H6jZzJ3", // karomi@fupa.id
+      "xxySAjSMqKeq7SC6r5vyzes7USY2"  // annisa@fupa.id
+    ]);
+    const KARYAWAN_UIDS = new Set([
+      "y2MTtiGZcVcts2MkQncckAaUasm2", // x@fupa.id
+      "4qwoQhWyZmatqkRYaENtz5Uw8fy1", // cabang1@fupa.id
+      "UkIHdrTF6vefeuzp94ttlmxZzqk2", // cabang2@fupa.id
+      "kTpmDbdBETQT7HIqT6TvpLwrbQf2", // cabang3@fupa.id
+      "15FESE0b7cQFKqdJSqNBTZlHqWR2", // cabang4@fupa.id
+      "1tQidUDFTjRTJdJJYIudw9928pa2", // cabang5@fupa.id
+      "7BCcTwQ5wDaxWA6xbzJX9VWj1o52", // cabang6@fupa.id
+      "mpyFesOjUIcs8O8Sh3tVLS8x7dA3", // cabang7@fupa.id
+      "2jV2is3MQRhv7nnd1gXeqiaj11t2", // cabang8@fupa.id
+      "or2AQDVY1hdpwT0YOmL4qJrgCju1", // cabang9@fupa.id
+      "HNJ52lywYVaUhRK3BNEARfQsQo22"  // cabang10@fupa.id
+    ]);
+
+    // Inisialisasi Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Util UI
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    const toast = (msg) => {
+      const t = $("#toast");
+      if (!t) return alert(msg);
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 2200);
+    };
+
+    // Dapatkan server time via Firestore serverTimestamp comparator
+    async function getServerTime() {
+      const docRef = db.collection("_meta").doc("_srv");
+      await docRef.set({ t: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      const snap = await docRef.get();
+      const ts = snap.get("t");
+      return ts ? ts.toDate() : new Date(); // fallback
+    }
+    function fmtDateTime(d) {
+      const pad = (n) => n.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function ymd(d){
+      const pad = (n) => n.toString().padStart(2,"0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+
+    // Role guard
+    function redirectByRole(uid, pathIfAdmin, pathIfKaryawan) {
+      if (ADMIN_UIDS.has(uid)) {
+        if (!location.pathname.endsWith(pathIfAdmin)) location.href = pathIfAdmin;
+      } else if (KARYAWAN_UIDS.has(uid)) {
+        if (!location.pathname.endsWith(pathIfKaryawan)) location.href = pathIfKaryawan;
+      } else {
+        auth.signOut();
+        toast("Akses ditolak: akun belum diberi peran yang benar.");
+      }
+    }
+    function guardPage(uid, required) {
+      const isAdmin = ADMIN_UIDS.has(uid);
+      const isKaryawan = KARYAWAN_UIDS.has(uid);
+      if (required === "admin" && !isAdmin) { location.href = "index.html"; return false; }
+      if (required === "karyawan" && !isKaryawan) { location.href = "index.html"; return false; }
+      return true;
+    }
+
+    // Auto bootstrap koleksi & dokumen penting tanpa setup manual
+    async function bootstrapCollections(user) {
+      // users profile doc
+      const up = db.collection("users").doc(user.uid);
+      await up.set({
+        email: user.email || "",
+        role: ADMIN_UIDS.has(user.uid) ? "admin" : (KARYAWAN_UIDS.has(user.uid) ? "karyawan" : "unknown"),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // meta server tick
+      await db.collection("_meta").doc("_srv").set({ t: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+
+      // settings today default
+      const todayDoc = db.collection("_settings").doc("today");
+      if (!(await todayDoc.get()).exists) {
+        await todayDoc.set({ mode:"auto", date: ymd(new Date()) });
+      }
+    }
+
+    // Jam server live
+    async function startServerClock(sel) {
+      const el = $(sel);
+      if (!el) return;
+      const tick = async () => {
+        try {
+          const t = await getServerTime();
+          el.textContent = `Waktu server: ${fmtDateTime(t)} WIB`;
+        } catch {
+          el.textContent = `Waktu server: tidak tersedia`;
+        }
+      };
+      await tick();
+      setInterval(tick, 10_000);
+    }
+
+    // Kompres gambar ke kualitas kecil (target ≤30 KB) dan hapus metadata EXIF
+    async function canvasToCompressedBlob(canvas, targetKB=30) {
+      let quality = 0.6;
+      let blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+      
+      // Turunkan kualitas hingga ukuran ≤ targetKB
+      for (let i = 0; i < 5 && blob.size / 1024 > targetKB; i++) {
+        quality = Math.max(0.3, quality - 0.1);
+        blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+      }
+      
+      // Jika masih besar, kurangi resolusi
+      if (blob.size / 1024 > targetKB) {
+        const scale = Math.sqrt(targetKB * 1024 / blob.size);
+        const newWidth = Math.max(320, Math.round(canvas.width * scale));
+        const newHeight = Math.max(240, Math.round(canvas.height * scale));
+        
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = newWidth;
+        tempCanvas.height = newHeight;
+        const ctx = tempCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, 0, newWidth, newHeight);
+        
+        blob = await new Promise(r => tempCanvas.toBlob(r, "image/jpeg", 0.7));
+      }
+      
+      // Hapus metadata EXIF dengan menggambar ulang
+      const img = new Image();
+      img.src = URL.createObjectURL(blob);
+      await new Promise(resolve => img.onload = resolve);
+      
+      const cleanCanvas = document.createElement("canvas");
+      cleanCanvas.width = img.width;
+      cleanCanvas.height = img.height;
+      const ctx = cleanCanvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      
+      return await new Promise(r => cleanCanvas.toBlob(r, "image/jpeg", quality));
+    }
+
+    // Upload ke Cloudinary unsigned
+    async function uploadToCloudinary(file) {
+      const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`;
+      const form = new FormData();
+      form.append("file", file);
+      form.append("upload_preset", UPLOAD_PRESET);
+      const r = await fetch(url, { method:"POST", body: form });
+      if (!r.ok) throw new Error("Upload Cloudinary gagal");
+      const data = await r.json();
+      return data.secure_url;
+    }
+
+    // Admin list cuti
+    function subscribeCuti(cb) {
+      return db.collection("cuti")
+        .where("status", "==", "menunggu") // Hanya tampilkan yang statusnya menunggu
+        .orderBy("createdAt", "desc")
+        .limit(50)
+        .onSnapshot(snap => {
+          const arr = [];
+          snap.forEach(d => arr.push({ id:d.id, ...d.data() }));
+          cb(arr);
+        });
+    }
+
+    async function setCutiStatus(id, status, adminUid) {
+      const cutiDoc = await db.collection("cuti").doc(id).get();
+      const cutiData = cutiDoc.data();
+      
+      await db.collection("cuti").doc(id).set({ status }, { merge:true });
+      
+      // Buat presensi otomatis jika cuti disetujui
+      if (status === "disetujui") {
+        await db.collection("presensi").add({
+          uid: cutiData.uid,
+          nama: cutiData.nama,
+          jenis: cutiData.jenis,
+          status: cutiData.jenis,
+          lat: null,
+          lng: null,
+          selfieUrl: "",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          localTime: fmtDateTime(new Date(cutiData.tanggal)),
+          ymd: cutiData.tanggal,
+          isCuti: true
+        });
+      }
+      
+      // Kirim notifikasi ke karyawan
+      await db.collection("notifications").add({
+        userId: cutiData.uid,
+        type: "cuti",
+        title: "Status Cuti",
+        message: `Cuti Anda pada ${cutiData.tanggal} telah ${status}`,
+        data: { cutiId: id, status },
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // Pengumuman
+    async function kirimPengumuman(text, adminUid) {
+      await db.collection("notifications").add({
+        userId: "all",
+        type: "pengumuman",
+        title: "Pengumuman",
+        message: text,
+        data: { from: adminUid },
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // Override status presensi
+    async function setOverrideStatus(date, status, adminUid) {
+      await db.collection("overrides").doc(date).set({
+        status,
+        createdBy: adminUid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      // Kirim notifikasi ke semua karyawan
+      await db.collection("notifications").add({
+        userId: "all",
+        type: "override",
+        title: "Override Status Presensi",
+        message: `Admin telah mengoverride status presensi pada ${date} menjadi ${status}`,
+        data: { date, status, adminUid },
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // Jadwal wajib
+    async function setHariMode(mode, dateStr) {
+      await db.collection("_settings").doc("today").set({
+        mode, date: dateStr
+      }, { merge: true });
+    }
+
+    // Profil simpan (nama, alamat, foto profil -> Cloudinary)
+    async function saveProfile(uid, { nama, alamat, pfpUrl }) {
+      const d = {};
+      if (nama !== undefined) d.nama = nama;
+      if (alamat !== undefined) d.alamat = alamat;
+      if (pfpUrl !== undefined) d.pfp = pfpUrl;
+      d.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection("users").doc(uid).set(d, { merge: true });
+    }
+
+    // Ambil profil
+    async function getProfile(uid) {
+      const snap = await db.collection("users").doc(uid).get();
+      return snap.exists ? snap.data() : {};
+    }
+
+    // Hapus presensi
+    async function deletePresensi(id) {
+      await db.collection("presensi").doc(id).delete();
+    }
+
+    // Hapus notifikasi
+    async function deleteNotification(id) {
+      await db.collection("notifications").doc(id).delete();
+    }
+
+    // Tandai notifikasi sebagai sudah dibaca
+    async function markNotificationAsRead(id) {
+      await db.collection("notifications").doc(id).update({
+        read: true
+      });
+    }
+
+    // Notifikasi system untuk admin
+    function subscribeNotifications(cb) {
+      return db.collection("notifications")
+        .where("userId", "in", ["admin", "all"])
+        .orderBy("createdAt", "desc")
+        .limit(20)
+        .onSnapshot(snap => {
+          const arr = [];
+          snap.forEach(d => arr.push({ id:d.id, ...d.data() }));
+          cb(arr);
+        });
+    }
+
+    // Auth routing untuk semua halaman
+    auth.onAuthStateChanged(async (user) => {
+      const path = location.pathname.toLowerCase();
+      if (!user) {
+        // Cegah akses langsung
+        if (path.endsWith("karyawan.html") || path.endsWith("admin.html")) {
+          location.href = "index.html";
+        }
+        return;
+      }
+
+      await bootstrapCollections(user);
+
+      // Update server time live
+      startServerClock("#serverTime");
+
+      // Routing per halaman
+      if (path.endsWith("admin.html")) {
+        if (!guardPage(user.uid, "admin")) return;
+        bindAdminPage(user);
+      }
+    });
+
+    function toCSV(rows, columns) {
+      const esc = (v) => `"${(v ?? "").toString().replace(/"/g,'""')}"`;
+      const header = columns.map(esc).join(",");
+      const body = rows.map(r => columns.map(k => esc(r[k])).join(",")).join("\n");
+      return header + "\n" + body;
+    }
+
+    function download(filename, text) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], {type:"text/csv"}));
+      a.download = filename;
+      a.click();
+    }
+
+    function copyUid() {
+      const uidInput = $("#newUid");
+      uidInput.select();
+      document.execCommand("copy");
+      toast("UID disalin ke clipboard");
+    }
+
+    async function bindAdminPage(user) {
+      // Profil muat
+      const profile = await getProfile(user.uid);
+      if (profile.pfp) $("#pfp").src = profile.pfp;
+      if (profile.nama) $("#nama").value = profile.nama;
+      if (profile.alamat) $("#alamat").value = profile.alamat;
+
+      // Dialogs
+      $("#profileBtn").onclick = () => $("#profileDlg").showModal();
+      $("#logoutBtn").onclick = async () => { 
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        await auth.signOut(); 
+        location.href="index.html"; 
+      };
+
+      // Simpan profil
+      $("#saveProfileBtn").onclick = async () => {
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        
+        try {
+          let pfpUrl;
+          const file = $("#pfpFile").files?.[0];
+          if (file) {
+            // Kompres foto profil ke ≤30 KB
+            const imgEl = document.createElement("img");
+            imgEl.src = URL.createObjectURL(file);
+            await new Promise(r => imgEl.onload = r);
+            const c = document.createElement("canvas");
+            const scale = Math.min(1, 512 / Math.max(imgEl.width, imgEl.height));
+            c.width = Math.max(64, Math.round(imgEl.width * scale));
+            c.height = Math.max(64, Math.round(imgEl.height * scale));
+            const ctx = c.getContext("2d");
+            ctx.drawImage(imgEl, 0, 0, c.width, c.height);
+            const blob = await canvasToCompressedBlob(c, 30); // Kompres ke ≤30 KB
+            pfpUrl = await uploadToCloudinary(blob);
+            $("#pfp").src = pfpUrl;
+          }
+          const nama = $("#nama").value.trim();
+          const alamat = $("#alamat").value.trim();
+          await saveProfile(user.uid, { nama, alamat, pfpUrl });
+          toast("Profil admin tersimpan.");
+        } catch {
+          toast("Gagal menyimpan profil admin.");
+        } finally {
+          const loadingEl = $("#loading");
+          if (loadingEl) loadingEl.style.display = "none";
+        }
+      };
+
+      // Notifikasi (cuti)
+      $("#notifBtn").onclick = () => $("#notifDlg").showModal();
+      const cutiList = $("#cutiList");
+      const unsubCuti = subscribeCuti((items) => {
+        cutiList.innerHTML = "";
+        
+        // Update badge notifikasi
+        const badge = $("#notifBadge");
+        if (items.length > 0) {
+          badge.textContent = items.length;
+          badge.style.display = "grid";
+        } else {
+          badge.style.display = "none";
+        }
+        
+        items.forEach(it => {
+          const row = document.createElement("div");
+          row.className = "card";
+          row.innerHTML = `
+            <div class="row" style="justify-content:space-between">
+              <div class="row">
+                <span class="material-symbols-rounded">person</span><b>${it.nama || it.uid}</b>
+                <span>•</span>
+                <span>${it.jenis}</span>
+                <span>•</span>
+                <span>${it.tanggal}</span>
+              </div>
+              <div class="row">
+                <span class="status ${it.status==='menunggu'?'s-warn':(it.status==='disetujui'?'s-good':'s-bad')}">${it.status}</span>
+              </div>
+            </div>
+            <div class="row" style="justify-content:flex-end; margin-top:8px">
+              <button class="btn" data-act="approve" data-id="${it.id}"><span class="material-symbols-rounded">check</span> Setujui</button>
+              <button class="btn" data-act="reject" data-id="${it.id}" style="background:#222"><span class="material-symbols-rounded">close</span> Tolak</button>
+            </div>
+          `;
+          cutiList.appendChild(row);
+        });
+        // Bind actions
+        $$("[data-act='approve']").forEach(b => b.onclick = async () => {
+          const loadingEl = $("#loading");
+          if (loadingEl) loadingEl.style.display = "flex";
+          await setCutiStatus(b.dataset.id, "disetujui", user.uid);
+          if (loadingEl) loadingEl.style.display = "none";
+          toast("Cuti disetujui.");
+        });
+        $$("[data-act='reject']").forEach(b => b.onclick = async () => {
+          const loadingEl = $("#loading");
+          if (loadingEl) loadingEl.style.display = "flex";
+          await setCutiStatus(b.dataset.id, "ditolak", user.uid);
+          if (loadingEl) loadingEl.style.display = "none";
+          toast("Cuti ditolak.");
+        });
+      });
+
+      // Override status presensi
+      $("#applyOverride").onclick = async () => {
+        const tanggal = $("#overrideTanggal").value;
+        const status = $("#overrideStatus").value;
+        
+        if (!tanggal) {
+          toast("Pilih tanggal terlebih dahulu.");
+          return;
+        }
+        
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        
+        try {
+          await setOverrideStatus(tanggal, status, user.uid);
+          toast("Override status berhasil diterapkan.");
+        } catch (error) {
+          toast("Gagal menerapkan override status.");
+        } finally {
+          if (loadingEl) loadingEl.style.display = "none";
+        }
+      };
+
+      // Pengumuman
+      $("#announceFab").onclick = async () => {
+        const text = prompt("Tulis pengumuman:");
+        if (!text) return;
+        
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        await kirimPengumuman(text, user.uid);
+        if (loadingEl) loadingEl.style.display = "none";
+        toast("Pengumuman terkirim.");
+      };
+      
+      $("#sendAnnounce").onclick = async () => {
+        const text = $("#announceText").value.trim();
+        if (!text) { toast("Tulis isi pengumuman."); return; }
+        
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        await kirimPengumuman(text, user.uid);
+        $("#announceText").value = "";
+        if (loadingEl) loadingEl.style.display = "none";
+        toast("Pengumuman terkirim.");
+      };
+
+      // Jadwal wajib / tidak
+      $("#saveSchedule").onclick = async () => {
+        const mode = $("#wajibHari").value;
+        const now = await getServerTime();
+        
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        await setHariMode(mode, ymd(now));
+        if (loadingEl) loadingEl.style.display = "none";
+        toast("Pengaturan hari tersimpan.");
+      };
+
+      // Tabel presensi + filter + export CSV
+      let lastData = [];
+      let currentPage = 1;
+      const pageSize = 20;
+      
+      async function loadPresensi() {
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        
+        let q = db.collection("presensi").orderBy("createdAt", "desc");
+        const nama = $("#fNama").value.trim().toLowerCase();
+        const tanggal = $("#fTanggal").value;
+        const periode = $("#fPeriode").value;
+        
+        // Filter berdasarkan periode
+        if (periode && periode !== "semua") {
+          const now = new Date();
+          let startDate = new Date();
+          
+          switch(periode) {
+            case "hari":
+              startDate.setHours(0,0,0,0);
+              break;
+            case "minggu":
+              startDate.setDate(now.getDate() - 7);
+              break;
+            case "bulan":
+              startDate.setMonth(now.getMonth() - 1);
+              break;
+            case "tahun":
+              startDate.setFullYear(now.getFullYear() - 1);
+              break;
+          }
+          
+          q = q.where("createdAt", ">=", startDate);
+        }
+        
+        // Firestore tidak bisa compound query yang fleksibel untuk text, maka filter di klien setelah pengambilan
+        const snap = await q.get();
+        const arr = [];
+        snap.forEach(d => arr.push({ id:d.id, ...d.data() }));
+        let filtered = arr;
+        if (tanggal) filtered = filtered.filter(x => x.ymd === tanggal);
+        if (nama) filtered = filtered.filter(x => (x.nama||"").toLowerCase().includes(nama));
+        lastData = filtered;
+        
+        renderPagination(filtered.length);
+        renderTable(filtered, currentPage);
+        
+        if (loadingEl) loadingEl.style.display = "none";
+      }
+      
+      function renderPagination(totalItems) {
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const pagination = $("#pagination");
+        pagination.innerHTML = "";
+        
+        if (totalPages <= 1) return;
+        
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement("button");
+          btn.textContent = i;
+          btn.classList.toggle("active", i === currentPage);
+          btn.onclick = () => {
+            currentPage = i;
+            renderTable(lastData, currentPage);
+          };
+          pagination.appendChild(btn);
+        }
+      }
+      
+      function renderTable(data, page) {
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageData = data.slice(startIndex, endIndex);
+        
+        const tb = $("#tableBody");
+        tb.innerHTML = "";
+        pageData.forEach(r => {
+          const badge = r.status === "tepat" ? "s-good" : (r.status==="terlambat"?"s-warn":"s-bad");
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${r.localTime || ""}</td>
+            <td>${r.nama || r.uid}</td>
+            <td>${r.jenis}</td>
+            <td><span class="status ${badge}">${r.status}</span></td>
+            <td>${(r.lat?.toFixed?.(5) || r.lat || "")}, ${(r.lng?.toFixed?.(5) || r.lng || "")}</td>
+            <td>${r.selfieUrl ? `<a href="${r.selfieUrl}" target="_blank">Lihat</a>` : "-"}</td>
+            <td><button class="btn" style="background:var(--bad); padding:6px 10px; font-size:12px;" onclick="deletePresensi('${r.id}')">Hapus</button></td>
+          `;
+          tb.appendChild(tr);
+        });
+      }
+      
+      // Bind fungsi deletePresensi ke window agar bisa diakses dari onclick
+      window.deletePresensi = async (id) => {
+        if (confirm("Hapus data presensi ini?")) {
+          const loadingEl = $("#loading");
+          if (loadingEl) loadingEl.style.display = "flex";
+          await deletePresensi(id);
+          if (loadingEl) loadingEl.style.display = "none";
+          toast("Presensi dihapus");
+          loadPresensi(); // Reload data
+        }
+      };
+      
+      $("#applyFilter").onclick = () => {
+        currentPage = 1;
+        loadPresensi();
+      };
+      
+      $("#exportCsv").onclick = () => {
+        if (!lastData.length) { toast("Tidak ada data untuk diekspor."); return; }
+        const cols = ["localTime","nama","jenis","status","lat","lng","selfieUrl","uid","ymd"];
+        const csv = toCSV(lastData, cols);
+        download(`presensi_${Date.now()}.csv`, csv);
+      };
+      
+      // Muat awal + refresh periodik ringan
+      await loadPresensi();
+      setInterval(loadPresensi, 20_000);
+
+      // Create akun karyawan (tanpa logout admin)
+      // Trik: buat second app instance untuk createUser supaya sesi admin tetap
+      const secondApp = firebase.apps.length > 1 ? firebase.apps[1] : firebase.initializeApp(firebaseConfig, "second");
+      const secondAuth = secondApp.auth();
+
+      // Dialog konfirmasi UID
+      const confirmUidDlg = document.createElement("dialog");
+      confirmUidDlg.id = "confirmUidDlg";
+      confirmUidDlg.innerHTML = `
+        <div class="dlg-head">
+          <div class="row"><span class="material-symbols-rounded">person_add</span><b>Konfirmasi UID</b></div>
+          <button class="icon-btn" onclick="document.getElementById('confirmUidDlg').close()"><span class="material-symbols-rounded">close</span></button>
+        </div>
+        <div class="dlg-body">
+          <p>Akun berhasil dibuat! Salin UID berikut dan tambahkan ke constant KARYAWAN_UIDS di app.js:</p>
+          <div class="input" style="margin:10px 0">
+            <input id="newUid" type="text" readonly />
+            <button class="btn" onclick="copyUid()">Salin</button>
+          </div>
+          <button class="btn" onclick="document.getElementById('confirmUidDlg').close()">Selesai</button>
+        </div>
+      `;
+      document.body.appendChild(confirmUidDlg);
+      
+      function copyUid() {
+        const uidInput = $("#newUid");
+        uidInput.select();
+        document.execCommand("copy");
+        toast("UID disalin ke clipboard");
+      }
+
+      $("#createUserBtn").onclick = async () => {
+        const email = $("#newEmail").value.trim();
+        const pass = $("#newPass").value.trim();
+        if (!email || !pass) { toast("Isi email dan kata sandi."); return; }
+        
+        const loadingEl = $("#loading");
+        if (loadingEl) loadingEl.style.display = "flex";
+        
+        try {
+          const cred = await secondAuth.createUserWithEmailAndPassword(email, pass);
+          const uid = cred.user.uid;
+          await db.collection("users").doc(uid).set({
+            email, role:"karyawan", createdBy: user.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge:true });
+          
+          // Tampilkan dialog konfirmasi UID
+          $("#newUid").value = uid;
+          $("#confirmUidDlg").showModal();
+          
+          // Kembalikan secondAuth ke kosong signOut agar tidak mengganggu
+          await secondAuth.signOut();
+        } catch (e) {
+          toast("Gagal membuat akun karyawan.");
+        } finally {
+          if (loadingEl) loadingEl.style.display = "none";
+        }
+      };
+
+      // Bersih
+      window.addEventListener("beforeunload", () => {
+        unsubCuti && unsubCuti();
+      });
+    }
+  </script>
+</body>
+</html>
