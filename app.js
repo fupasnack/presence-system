@@ -1,10 +1,5 @@
 // app.js — Presensi FUPA (complete client logic)
-// - Features: Auth, Session management, Profile, Presensi (camera, compress ≤30KB, strip EXIF), Cloudinary unsigned uploads
-// - Notifications: leave requests -> admin, admin approve/reject -> notify employee, admin override -> notify all, announcements
-// - Admin: create karyawan account without logging out (second auth), manage presensi, export CSV
-// - Auto-bootstrap collections: users, _meta/_srv, _settings/today
-// - Security logging (to security_logs collection)
-// IMPORTANT: This file expects firebase compat libs already loaded in the page.
+// Enhanced with all required features
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG (provided by user)
@@ -206,6 +201,19 @@ async function bootstrapForUser(user) {
   const settingsSnap = await settingsTodayRef.get();
   if (!settingsSnap.exists) {
     await settingsTodayRef.set({ mode: "auto", date: ymd(new Date()) }, { merge: true });
+  }
+  
+  // Create other collections if they don't exist
+  const collections = ["notifications", "overrides", "announcements", "cuti", "presensi"];
+  for (const collection of collections) {
+    try {
+      // Try to create a dummy document to ensure collection exists
+      const ref = db.collection(collection).doc();
+      await ref.set({ _created: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      await ref.delete();
+    } catch (e) {
+      console.warn(`Failed to bootstrap collection ${collection}`, e);
+    }
   }
 }
 
