@@ -92,10 +92,30 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // Announcements collection
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
     // Settings collection
     match /_settings/{document} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+    
+    // Sessions collection
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn() && isUser(resource.data.uid);
+      allow write: if isSignedIn() && isUser(request.resource.data.uid);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      allow delete: if isSignedIn() && isUser(resource.data.uid);
+    }
+    
+    // Security logs collection
+    match /security_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isSignedIn();
     }
     
     // Meta collection
