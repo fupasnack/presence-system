@@ -157,6 +157,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
+  <!-- Load the enhanced app.js -->
+  <script src="app.js"></script>
+
   <script>
     // CONFIG (user-provided keys)
     const firebaseConfig = {
@@ -281,96 +284,40 @@
       } catch { return 'unknown'; }
     }
 
-    // Security logs (create only)
-    async function logSecurityEvent(type, data = {}) {
-      try {
-        const eventData = {
-          type,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          userAgent: navigator.userAgent,
-          ip: await getClientIP(),
-          ...data
-        };
-        if (auth.currentUser) { eventData.uid = auth.currentUser.uid; eventData.email = auth.currentUser.email; }
-        // create log (rules should allow authed users to create their own logs and admins to read)
-        await db.collection("security_logs").add(eventData);
-      } catch (err) {
-        // don't block UX if logging fails
-        console.warn("logSecurityEvent failed", err);
+    // Auth state listener
+    auth.onAuthStateChanged(async (user) => {
+      $("#loading").style.display = "none";
+      const path = location.pathname.toLowerCase();
+      if (!user) {
+        // If visiting protected pages while not authed, redirect to index
+        if (path.endsWith("karyawan.html") || path.endsWith("admin.html")) location.href = "index.html";
+        // For login page, bind UI
+        if (path.endsWith("index.html") || path.endsWith("/") ) bindLoginPage();
+        return;
       }
-    }
 
-    // Session management (creates a session doc without storing sensitive tokens)
-    async function createSessionRecord(user) {
-      const expiresAt = firebase.firestore.Timestamp.fromDate(new Date(Date.now() + SECURITY_CONFIG.sessionDuration));
-      const sessionData = {
-        uid: user.uid,
-        email: user.email || "",
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        expiresAt,
-        userAgent: navigator.userAgent,
-        ip: await getClientIP(),
-        valid: true
-      };
-      const ref = await db.collection("sessions").add(sessionData);
-      localStorage.setItem('session_id', ref.id);
-      return ref.id;
-    }
-
-    // Validate session (by stored session_id)
-    async function checkSessionValidity() {
-      const sessionId = localStorage.getItem('session_id');
-      if (!sessionId) return false;
-      try {
-        const snap = await db.collection("sessions").doc(sessionId).get();
-        if (!snap.exists) return false;
-        const data = snap.data();
-        if (!data.valid) return false;
-        // expiresAt may be Firestore Timestamp
-        const exp = data.expiresAt && data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt);
-        if (exp < new Date()) {
-          // session expired -> delete doc client-side (optional) and return false
-          try { await db.collection("sessions").doc(sessionId).delete(); } catch {}
-          localStorage.removeItem('session_id');
-          return false;
-        }
-        // ownership check
-        if (!auth.currentUser || auth.currentUser.uid !== data.uid) return false;
-        return true;
-      } catch (err) {
-        console.error("checkSessionValidity error", err);
-        return false;
+      // User is signed in — validate session doc
+      const ok = await window.PresensiFUPA.checkSessionValidity();
+      if (!ok) {
+        await window.PresensiFUPA.logEvent("invalid_session", { uid: user.uid });
+        await auth.signOut();
+        toast("Sesi tidak valid. Silakan login kembali.");
+        return;
       }
-    }
 
-    async function refreshSession() {
-      const sessionId = localStorage.getItem('session_id');
-      if (!sessionId) return;
-      try {
-        await db.collection("sessions").doc(sessionId).update({
-          expiresAt: firebase.firestore.Timestamp.fromDate(new Date(Date.now() + SECURITY_CONFIG.sessionDuration))
-        });
-      } catch (err) {
-        console.warn("refreshSession failed", err);
-      }
-    }
+      // ensure user documents exist
+      await window.PresensiFUPA.bootstrapForUser(user);
+      await window.PresensiFUPA.logEvent("user_login", { uid: user.uid });
 
-    // Bootstrap essential collections for a user (creates users doc if missing)
-    async function bootstrapCollections(user) {
-      const up = db.collection("users").doc(user.uid);
-      const doc = await up.get();
-      if (!doc.exists) {
-        await up.set({
-          email: user.email || "",
-          role: "unknown",
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        await logSecurityEvent("user_created", { uid: user.uid });
-      } else {
-        await up.set({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      // start session refresh timer
+      if (sessionTimer) clearInterval(sessionTimer);
+      sessionTimer = setInterval(window.PresensiFUPA.refreshSession, SECURITY_CONFIG.tokenRefreshInterval);
+
+      // redirect to role page if currently on index
+      if (path.endsWith("index.html") || path.endsWith("/")) {
+        await redirectByRole(user);
       }
-    }
+    });
 
     // Role redirect helper (reads users/{uid}.role document)
     async function redirectByRole(user, adminPath = "admin.html", karyawanPath = "karyawan.html") {
@@ -392,41 +339,6 @@
         await auth.signOut();
       }
     }
-
-    // Auth state listener
-    auth.onAuthStateChanged(async (user) => {
-      $("#loading").style.display = "none";
-      const path = location.pathname.toLowerCase();
-      if (!user) {
-        // If visiting protected pages while not authed, redirect to index
-        if (path.endsWith("karyawan.html") || path.endsWith("admin.html")) location.href = "index.html";
-        // For login page, bind UI
-        if (path.endsWith("index.html") || path.endsWith("/") ) bindLoginPage();
-        return;
-      }
-
-      // User is signed in — validate session doc
-      const ok = await checkSessionValidity();
-      if (!ok) {
-        await logSecurityEvent("invalid_session", { uid: user.uid });
-        await auth.signOut();
-        toast("Sesi tidak valid. Silakan login kembali.");
-        return;
-      }
-
-      // ensure user documents exist
-      await bootstrapCollections(user);
-      await logSecurityEvent("user_login", { uid: user.uid });
-
-      // start session refresh timer
-      if (sessionTimer) clearInterval(sessionTimer);
-      sessionTimer = setInterval(refreshSession, SECURITY_CONFIG.tokenRefreshInterval);
-
-      // redirect to role page if currently on index
-      if (path.endsWith("index.html") || path.endsWith("/")) {
-        await redirectByRole(user);
-      }
-    });
 
     // LOGIN handler
     function bindLoginPage() {
@@ -455,22 +367,22 @@
         loginBtn.disabled = true;
 
         try {
-          await logSecurityEvent("login_attempt", { email });
+          await window.PresensiFUPA.logEvent("login_attempt", { email });
           const cred = await auth.signInWithEmailAndPassword(email, pass);
-          await logSecurityEvent("login_success", { email, uid: cred.user.uid });
+          await window.PresensiFUPA.logEvent("login_success", { email, uid: cred.user.uid });
 
           // reset attempts
           loginAttempts = 0; updateAttemptsCounterUI();
 
           // create session record (no token stored)
-          await createSessionRecord(cred.user);
+          await window.PresensiFUPA.createSessionRecord(cred.user);
 
           // navigation will be handled by onAuthStateChanged
         } catch (e) {
           loginBtn.disabled = false;
           $("#loading").style.display = "none";
 
-          await logSecurityEvent("login_failed", { email, error: e.code });
+          await window.PresensiFUPA.logEvent("login_failed", { email, error: e.code });
 
           loginAttempts++;
           updateAttemptsCounterUI();
@@ -478,7 +390,7 @@
           if (loginAttempts >= SECURITY_CONFIG.maxLoginAttempts) {
             lockoutUntil = Date.now() + SECURITY_CONFIG.lockoutDuration;
             localStorage.setItem('lockoutUntil', lockoutUntil.toString());
-            await logSecurityEvent("account_lockout", { email, duration: SECURITY_CONFIG.lockoutDuration });
+            await window.PresensiFUPA.logEvent("account_lockout", { email, duration: SECURITY_CONFIG.lockoutDuration });
             toast(`Terlalu banyak percobaan login. Akun terkunci sementara selama 15 menit.`, 5000);
           }
 
